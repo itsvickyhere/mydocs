@@ -1,11 +1,9 @@
 package com.mydocs.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,22 +14,13 @@ import java.time.LocalDateTime;
 public class Document {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;              // UUID set manually in service
 
-    @NotBlank
-    private String fileName;
-
-    private String fileType;      // e.g. "application/pdf"
-
-    private Long fileSize;        // bytes
-
-    private String storagePath;   // where file is saved on disk
-
-    private String uploadedBy;    // future: tie to user
-
-    @Column(nullable = false)
+    private String filename;        // stored name on disk (uuid_original.pdf)
+    private String originalName;    // what user sees
+    private Long size;
+    private String mimeType;
+    private String path;
+    private String status = "complete";
     private LocalDateTime uploadedAt = LocalDateTime.now();
-
-    private String status;        // "UPLOADED", "PROCESSING", "DONE"
 }

@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -15,15 +14,10 @@ import java.time.LocalDateTime;
 public class Notification {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;              // UUID set manually in service
 
-    private String message;       // e.g. "resume.pdf uploaded successfully"
-
-    private String type;          // "SUCCESS", "ERROR", "INFO"
-
+    private String message;
+    private String type = "info";   // "success", "error", "info"
     private boolean read = false;
-
-    @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }
