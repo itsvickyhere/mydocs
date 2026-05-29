@@ -54,7 +54,7 @@ public class DocumentService {
                 "message", msg,
                 "timestamp", LocalDateTime.now().toString()
             );
-            sseService.broadcast(event);
+            sseService.sendEvent("bulk_complete", event);
         } else {
             for (MultipartFile f : files) {
                 String msg = "\"" + f.getOriginalFilename() + "\" uploaded successfully";
