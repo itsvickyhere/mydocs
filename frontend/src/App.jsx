@@ -7,7 +7,7 @@ import UploadZone from './components/UploadZone'
 import DocumentTable from './components/DocumentTable'
 import NotificationPanel from './components/NotificationPanel'
 import useSSE from './hooks/useSSE'
-import { getDocuments, SSE_URL } from './api'
+import { getDocuments, getNotifications, SSE_URL } from './api'
 
 export default function App() {
   const [documents, setDocuments] = useState([])
@@ -28,10 +28,17 @@ export default function App() {
     loadDocuments()
   }, [loadDocuments])
 
+  useEffect(() => {
+    getNotifications()
+      .then(({ data }) => setUnreadCount(data.filter((n) => !n.read).length))
+      .catch(() => {})
+  }, [])
+
   useSSE(SSE_URL, (eventName, data) => {
-    if (eventName === 'upload' || eventName === 'bulk_complete') {
+    if (eventName === 'bulk_complete') {
       loadDocuments()
       setUnreadCount((c) => c + 1)
+      enqueueSnackbar(data, { variant: 'success' })
     }
     if (eventName === 'delete') {
       loadDocuments()

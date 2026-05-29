@@ -43,27 +43,15 @@ public class DocumentService {
             saved.add(docRepo.save(doc));
         }
 
+        // Bulk (>3): persist notification + SSE so user sees it even after navigating away
         if (isBulk) {
             String msg = files.length + " files uploaded successfully";
             notifRepo.save(new Notification(
                 UUID.randomUUID().toString(), msg, "success", false, LocalDateTime.now()
             ));
-            Map<String, Object> event = Map.of(
-                "type", "bulk_complete",
-                "count", files.length,
-                "message", msg,
-                "timestamp", LocalDateTime.now().toString()
-            );
-            sseService.sendEvent("bulk_complete", event);
-        } else {
-            for (MultipartFile f : files) {
-                String msg = "\"" + f.getOriginalFilename() + "\" uploaded successfully";
-                notifRepo.save(new Notification(
-                    UUID.randomUUID().toString(), msg, "success", false, LocalDateTime.now()
-                ));
-                sseService.sendEvent("upload", msg);
-            }
+            sseService.sendEvent("bulk_complete", msg);
         }
+        // ≤3 files: inline UI progress only — no extra notification
         return saved;
     }
 

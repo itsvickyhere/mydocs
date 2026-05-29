@@ -9,7 +9,7 @@ export default function Header({ unreadCount, onNotifClick }) {
           MyDocs
         </Typography>
         <IconButton color="inherit" onClick={onNotifClick} aria-label="notifications">
-          <Badge badgeContent={unreadCount} color="error">
+          <Badge badgeContent={unreadCount || null} color="error">
             <NotificationsIcon />
           </Badge>
         </IconButton>
