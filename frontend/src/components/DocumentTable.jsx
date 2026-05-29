@@ -1,12 +1,21 @@
 import {
-  Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, IconButton,
-  Typography, Chip
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Typography,
+  Chip,
+  Tooltip,
 } from '@mui/material'
+import DownloadIcon from '@mui/icons-material/Download'
 import DeleteIcon from '@mui/icons-material/Delete'
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile'
 import { useSnackbar } from 'notistack'
-import { deleteDocument } from '../api'
+import { deleteDocument, downloadUrl } from '../api'
 
 function formatBytes(bytes) {
   if (!bytes) return '—'
@@ -26,7 +35,7 @@ export default function DocumentTable({ documents, onDelete }) {
   const handleDelete = async (doc) => {
     try {
       await deleteDocument(doc.id)
-      enqueueSnackbar(`Deleted ${doc.fileName}`, { variant: 'info' })
+      enqueueSnackbar(`Deleted ${doc.originalName}`, { variant: 'info' })
       onDelete()
     } catch {
       enqueueSnackbar('Delete failed', { variant: 'error' })
@@ -35,8 +44,8 @@ export default function DocumentTable({ documents, onDelete }) {
 
   if (documents.length === 0) {
     return (
-      <Typography color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-        No documents yet. Upload one above!
+      <Typography color="text.secondary" sx={{ mt: 4, textAlign: 'center' }}>
+        No documents yet — upload a PDF above!
       </Typography>
     )
   }
@@ -47,7 +56,6 @@ export default function DocumentTable({ documents, onDelete }) {
         <TableHead>
           <TableRow sx={{ bgcolor: 'grey.50' }}>
             <TableCell>File</TableCell>
-            <TableCell>Type</TableCell>
             <TableCell>Size</TableCell>
             <TableCell>Uploaded</TableCell>
             <TableCell>Status</TableCell>
@@ -59,29 +67,38 @@ export default function DocumentTable({ documents, onDelete }) {
             <TableRow key={doc.id} hover>
               <TableCell>
                 <InsertDriveFileIcon
+                  fontSize="small"
                   sx={{ verticalAlign: 'middle', mr: 1, color: 'primary.main' }}
                 />
-                {doc.fileName}
+                {doc.originalName}
               </TableCell>
-              <TableCell>{doc.fileType || '—'}</TableCell>
-              <TableCell>{formatBytes(doc.fileSize)}</TableCell>
+              <TableCell>{formatBytes(doc.size)}</TableCell>
               <TableCell>{formatDate(doc.uploadedAt)}</TableCell>
               <TableCell>
-                <Chip
-                  label={doc.status}
-                  color={doc.status === 'UPLOADED' ? 'success' : 'default'}
-                  size="small"
-                />
+                <Chip label={doc.status} color="success" size="small" />
               </TableCell>
               <TableCell align="center">
-                <IconButton
-                  color="error"
-                  size="small"
-                  onClick={() => handleDelete(doc)}
-                  aria-label="delete"
-                >
-                  <DeleteIcon />
-                </IconButton>
+                <Tooltip title="Download">
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    href={downloadUrl(doc.id)}
+                    target="_blank"
+                    aria-label="download"
+                  >
+                    <DownloadIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => handleDelete(doc)}
+                    aria-label="delete"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
               </TableCell>
             </TableRow>
           ))}

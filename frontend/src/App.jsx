@@ -7,19 +7,19 @@ import UploadZone from './components/UploadZone'
 import DocumentTable from './components/DocumentTable'
 import NotificationPanel from './components/NotificationPanel'
 import useSSE from './hooks/useSSE'
-import { fetchDocuments } from './api'
+import { getDocuments, SSE_URL } from './api'
 
 export default function App() {
   const [documents, setDocuments] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const { enqueueSnackbar } = useSnackbar()
 
-  // Load documents on mount
   const loadDocuments = useCallback(async () => {
     try {
-      const data = await fetchDocuments()
+      const { data } = await getDocuments()
       setDocuments(data)
-    } catch (err) {
+    } catch {
       enqueueSnackbar('Failed to load documents', { variant: 'error' })
     }
   }, [enqueueSnackbar])
@@ -28,31 +28,30 @@ export default function App() {
     loadDocuments()
   }, [loadDocuments])
 
-  // SSE — server pushes events when anything changes
-  useSSE((eventName, data) => {
-    if (eventName === 'upload') {
-      enqueueSnackbar(data, { variant: 'success' })
-      loadDocuments() // refresh table
+  useSSE(SSE_URL, (eventName, data) => {
+    if (eventName === 'upload' || eventName === 'bulk_complete') {
+      loadDocuments()
+      setUnreadCount((c) => c + 1)
     }
     if (eventName === 'delete') {
-      enqueueSnackbar(data, { variant: 'info' })
       loadDocuments()
     }
   })
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Header onNotifClick={() => setNotifOpen(true)} />
-
+      <Header
+        unreadCount={unreadCount}
+        onNotifClick={() => {
+          setNotifOpen(true)
+          setUnreadCount(0)
+        }}
+      />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <UploadZone onUploadSuccess={loadDocuments} />
         <DocumentTable documents={documents} onDelete={loadDocuments} />
       </Container>
-
-      <NotificationPanel
-        open={notifOpen}
-        onClose={() => setNotifOpen(false)}
-      />
+      <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
     </Box>
   )
 }
