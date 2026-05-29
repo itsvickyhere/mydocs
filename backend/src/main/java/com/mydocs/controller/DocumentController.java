@@ -7,11 +7,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
@@ -43,15 +45,39 @@ public class DocumentController {
         return docRepo.findAllByOrderByUploadedAtDesc();
     }
 
+    @GetMapping("/documents/{id}/view")
+    public ResponseEntity<Resource> view(@PathVariable String id) throws IOException {
+        return serveFile(id, true);
+    }
+
     @GetMapping("/documents/{id}/download")
-    public ResponseEntity<Resource> download(@PathVariable String id) throws IOException {
-        Document doc = docRepo.findById(id)
-            .orElseThrow(() -> new RuntimeException("Document not found"));
-        Resource resource = new UrlResource(Paths.get(doc.getPath()).toUri());
-        return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"" + doc.getOriginalName() + "\"")
-            .body(resource);
+    public ResponseEntity<Resource> download(
+            @PathVariable String id,
+            @RequestParam(value = "inline", defaultValue = "false") boolean inline
+    ) throws IOException {
+        return serveFile(id, inline);
+    }
+
+    private ResponseEntity<Resource> serveFile(String id, boolean inline) throws IOException {
+        return docRepo.findById(id)
+            .map(doc -> {
+                try {
+                    Path filePath = Paths.get(doc.getPath()).toAbsolutePath().normalize();
+                    Resource resource = new UrlResource(filePath.toUri());
+                    if (!resource.exists() || !resource.isReadable()) {
+                        return ResponseEntity.notFound().<Resource>build();
+                    }
+                    String disposition = inline ? "inline" : "attachment";
+                    return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_PDF)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                            disposition + "; filename=\"" + doc.getOriginalName() + "\"")
+                        .body(resource);
+                } catch (Exception e) {
+                    return ResponseEntity.internalServerError().<Resource>build();
+                }
+            })
+            .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/documents/{id}")

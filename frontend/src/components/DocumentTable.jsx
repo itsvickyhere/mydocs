@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Table,
   TableBody,
@@ -10,12 +11,15 @@ import {
   Typography,
   Chip,
   Tooltip,
+  Link,
 } from '@mui/material'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import DownloadIcon from '@mui/icons-material/Download'
 import DeleteIcon from '@mui/icons-material/Delete'
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile'
 import { useSnackbar } from 'notistack'
 import { deleteDocument, downloadUrl } from '../api'
+import DocumentViewer from './DocumentViewer'
 
 function formatBytes(bytes) {
   if (!bytes) return '—'
@@ -30,6 +34,7 @@ function formatDate(iso) {
 }
 
 export default function DocumentTable({ documents, onDelete }) {
+  const [viewerDoc, setViewerDoc] = useState(null)
   const { enqueueSnackbar } = useSnackbar()
 
   const handleDelete = async (doc) => {
@@ -51,6 +56,7 @@ export default function DocumentTable({ documents, onDelete }) {
   }
 
   return (
+    <>
     <TableContainer component={Paper} variant="outlined">
       <Table>
         <TableHead>
@@ -70,7 +76,14 @@ export default function DocumentTable({ documents, onDelete }) {
                   fontSize="small"
                   sx={{ verticalAlign: 'middle', mr: 1, color: 'primary.main' }}
                 />
-                {doc.originalName}
+                <Link
+                  component="button"
+                  variant="body2"
+                  onClick={() => setViewerDoc(doc)}
+                  sx={{ verticalAlign: 'middle', textAlign: 'left' }}
+                >
+                  {doc.originalName}
+                </Link>
               </TableCell>
               <TableCell>{formatBytes(doc.size)}</TableCell>
               <TableCell>{formatDate(doc.uploadedAt)}</TableCell>
@@ -78,6 +91,16 @@ export default function DocumentTable({ documents, onDelete }) {
                 <Chip label={doc.status} color="success" size="small" />
               </TableCell>
               <TableCell align="center">
+                <Tooltip title="View">
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    onClick={() => setViewerDoc(doc)}
+                    aria-label="view"
+                  >
+                    <VisibilityIcon />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title="Download">
                   <IconButton
                     size="small"
@@ -105,5 +128,12 @@ export default function DocumentTable({ documents, onDelete }) {
         </TableBody>
       </Table>
     </TableContainer>
+
+    <DocumentViewer
+      open={Boolean(viewerDoc)}
+      document={viewerDoc}
+      onClose={() => setViewerDoc(null)}
+    />
+    </>
   )
 }
