@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -27,8 +28,13 @@ public class SseService {
         return emitter;
     }
 
+    /** Backwards-compatible alias expected by `SseController`. */
+    public SseEmitter subscribe() {
+        return register();
+    }
+
     /** Broadcasts an event to ALL connected clients */
-    public void sendEvent(String eventName, String data) {
+    public void sendEvent(String eventName, Object data) {
         List<SseEmitter> dead = new CopyOnWriteArrayList<>();
 
         for (SseEmitter emitter : emitters) {
@@ -44,5 +50,14 @@ public class SseService {
         }
 
         emitters.removeAll(dead);
+    }
+
+    /**
+     * Broadcasts a structured payload expected by `DocumentService`.
+     * Uses the payload's `type` field as SSE event name when present.
+     */
+    public void broadcast(Map<String, Object> payload) {
+        String eventName = payload.get("type") != null ? payload.get("type").toString() : "broadcast";
+        sendEvent(eventName, payload);
     }
 }

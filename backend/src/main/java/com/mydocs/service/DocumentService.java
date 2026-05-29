@@ -1,74 +1,77 @@
 package com.mydocs.service;
 
 import com.mydocs.model.Document;
+import com.mydocs.model.Notification;
 import com.mydocs.repository.DocumentRepository;
+import com.mydocs.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class DocumentService {
 
-    private final DocumentRepository documentRepository;
+    private final DocumentRepository docRepo;
+    private final NotificationRepository notifRepo;
     private final SseService sseService;
 
-    // Upload directory (creates if not exists)
     private static final String UPLOAD_DIR = "uploads/";
 
-    public Document uploadDocument(MultipartFile file) throws IOException {
-        // Create uploads folder if missing
-        Path uploadPath = Paths.get(UPLOAD_DIR);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
+    public List<Document> handleUpload(MultipartFile[] files) throws IOException {
+        new File(UPLOAD_DIR).mkdirs();
+        boolean isBulk = files.length > 3;
+        List<Document> saved = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            String id = UUID.randomUUID().toString();
+            String filename = id + "_" + file.getOriginalFilename();
+            Path path = Paths.get(UPLOAD_DIR + filename);
+            Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+
+            Document doc = new Document(
+                id, filename, file.getOriginalFilename(),
+                file.getSize(), file.getContentType(),
+                path.toString(), "complete", LocalDateTime.now()
+            );
+            saved.add(docRepo.save(doc));
         }
 
-        // Save file to disk with unique name
-        String uniqueName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        Path filePath = uploadPath.resolve(uniqueName);
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-        // Save metadata to DB
-        Document doc = new Document();
-        doc.setFileName(file.getOriginalFilename());
-        doc.setFileType(file.getContentType());
-        doc.setFileSize(file.getSize());
-        doc.setStoragePath(filePath.toString());
-        doc.setUploadedAt(LocalDateTime.now());
-        doc.setStatus("UPLOADED");
-
-        Document saved = documentRepository.save(doc);
-
-        // Push SSE notification to all connected clients
-        sseService.sendEvent("upload", "File uploaded: " + file.getOriginalFilename());
-
+        if (isBulk) {
+            String msg = files.length + " files uploaded successfully";
+            notifRepo.save(new Notification(
+                UUID.randomUUID().toString(), msg, "success", false, LocalDateTime.now()
+            ));
+            Map<String, Object> event = Map.of(
+                "type", "bulk_complete",
+                "count", files.length,
+                "message", msg,
+                "timestamp", LocalDateTime.now().toString()
+            );
+            sseService.broadcast(event);
+        } else {
+            for (MultipartFile f : files) {
+                String msg = "\"" + f.getOriginalFilename() + "\" uploaded successfully";
+                notifRepo.save(new Notification(
+                    UUID.randomUUID().toString(), msg, "success", false, LocalDateTime.now()
+                ));
+                sseService.sendEvent("upload", msg);
+            }
+        }
         return saved;
     }
 
-    public List<Document> getAllDocuments() {
-        return documentRepository.findAll();
-    }
-
-    public Document getDocumentById(Long id) {
-        return documentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Document not found: " + id));
-    }
-
-    public void deleteDocument(Long id) {
-        Document doc = getDocumentById(id);
-        // Delete file from disk
-        try {
-            Files.deleteIfExists(Paths.get(doc.getStoragePath()));
-        } catch (IOException e) {
-            // Log but don't fail — DB record still gets deleted
-        }
-        documentRepository.deleteById(id);
-        sseService.sendEvent("delete", "File deleted: " + doc.getFileName());
+    public void deleteDocument(String id) {
+        docRepo.findById(id).ifPresent(doc -> {
+            try { Files.deleteIfExists(Paths.get(doc.getPath())); } catch (IOException ignored) {}
+            docRepo.deleteById(id);
+            sseService.sendEvent("delete", "File deleted: " + doc.getOriginalName());
+        });
     }
 }
