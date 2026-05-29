@@ -1,38 +1,19 @@
 import { useEffect } from 'react'
 
-/**
- * useSSE — subscribes to GET /api/sse/subscribe
- * Calls onEvent(eventName, data) whenever the server pushes an event.
- *
- * Usage:
- *   useSSE((name, data) => {
- *     if (name === 'upload') refetchDocuments()
- *   })
- */
-export default function useSSE(onEvent) {
+export default function useSSE(url, onEvent) {
   useEffect(() => {
-    const es = new EventSource('/api/sse/subscribe')
+    const es = new EventSource(url)
 
-    // Handle named events from SseService.sendEvent()
-    const handleUpload = (e) => onEvent('upload', e.data)
-    const handleDelete = (e) => onEvent('delete', e.data)
-    const handleProgress = (e) => onEvent('progress', e.data)
+    // Named events from SseService.sendEvent()
+    es.addEventListener('upload', (e) => onEvent('upload', e.data))
+    es.addEventListener('delete', (e) => onEvent('delete', e.data))
+    es.addEventListener('bulk_complete', (e) => onEvent('bulk_complete', e.data))
 
-    es.addEventListener('upload', handleUpload)
-    es.addEventListener('delete', handleDelete)
-    es.addEventListener('progress', handleProgress)
+    // Fallback for broadcast() which sends unnamed events
+    es.onmessage = (e) => onEvent('message', e.data)
 
-    es.onerror = (err) => {
-      console.error('SSE connection error:', err)
-      // EventSource auto-reconnects — no manual retry needed
-    }
+    es.onerror = () => {} // auto-reconnects
 
-    // Cleanup on unmount
-    return () => {
-      es.removeEventListener('upload', handleUpload)
-      es.removeEventListener('delete', handleDelete)
-      es.removeEventListener('progress', handleProgress)
-      es.close()
-    }
-  }, []) // run once on mount
+    return () => es.close()
+  }, [url])
 }
